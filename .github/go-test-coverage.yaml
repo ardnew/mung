@@ -1,9 +1,0 @@
-profile: cover.out
-
-threshold:
-  total: 100
-
-exclude:
-  paths:
-    - ^cmd
-

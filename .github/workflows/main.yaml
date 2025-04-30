@@ -17,7 +17,7 @@ jobs:
       - name: test module
         env:
           GITHUB_TOKEN: ${{ matrix.os == 'ubuntu-latest' && secrets.GITHUB_TOKEN || '' }}
-        run: go test --race --count=1 --failfast --shuffle=on --coverprofile=${{ matrix.os }}-profile --covermode=atomic --coverpkg=./... ./...
+        run: go test --race --count=1 --failfast --shuffle=on --coverprofile=${{ matrix.os }}-profile --covermode=atomic --coverpkg=. .
       - name: upload cover profile
         uses: actions/upload-artifact@v4
         with:
@@ -32,9 +32,8 @@ jobs:
       - name: check test coverage
         uses: vladopajic/go-test-coverage@v2
         with:
-          config: .github/go-test-coverage.yaml      
-          ## when token is not specified (value '') this feature is turned off
-          ## in this example badge is created and committed only for main branch
+          profile: ubuntu-latest-profile,macos-latest-profile,windows-latest-profile
+          threshold-total: 100
           git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
           git-repository: ardnew/mung
           git-branch: github/actions 
