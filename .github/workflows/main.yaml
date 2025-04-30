@@ -32,6 +32,7 @@ jobs:
       - name: check test coverage
         uses: vladopajic/go-test-coverage@v2
         with:
+          debug: true
           profile: ubuntu-latest-profile,macos-latest-profile,windows-latest-profile
           threshold-total: 100
           git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
