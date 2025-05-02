@@ -28,6 +28,7 @@ jobs:
         gistID: 8642d8c0268d7a0f7e436e66dbdbbf88
         filename: badge-mung-coverage.json
         namedLogo: Go
+        logoColor: '#F9F9F9'
         label: Coverage
         message: ${{ steps.coverage.outputs.coverage-pct-1dp }}%
-        color: ${{ steps.coverage.outputs.meets-threshold == 'true' && 'green' || 'red' }}
+        color: ${{ steps.coverage.outputs.meets-threshold == 'true' && '#40BB12' || 'red' }}
