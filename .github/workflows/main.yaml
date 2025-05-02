@@ -15,6 +15,7 @@ jobs:
       with:
         fetch-depth: 10
     - name: Collect coverage results
+      id: coverage
       uses: gwatts/go-coverage-action@v2
       with:
         coverage-threshold: 80
@@ -25,7 +26,8 @@ jobs:
       with:
         auth: ${{ secrets.COVERAGE_GIST_TOKEN }}
         gistID: 8642d8c0268d7a0f7e436e66dbdbbf88
-        filename: coverage.json
+        filename: badge-mung-coverage.json
+        namedLogo: Go
         label: Coverage
         message: ${{ steps.coverage.outputs.coverage-pct-1dp }}%
         color: ${{ steps.coverage.outputs.meets-threshold == 'true' && 'green' || 'red' }}
