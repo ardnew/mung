@@ -2,13 +2,13 @@
 [docurl]:https://godoc.org/github.com/ardnew/mung
 [repimg]:https://goreportcard.com/badge/github.com/ardnew/mung
 [repurl]:https://goreportcard.com/report/github.com/ardnew/mung
-[covimg]:https://codecov.io/gh/ardnew/mung/branch/main/graph/badge.svg
-[covurl]:https://codecov.io/gh/ardnew/mung
+[covimg]:https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/ardnew/8642d8c0268d7a0f7e436e66dbdbbf88/raw/badge-mung-coverage.json
+[covurl]:https://gist.githubusercontent.com/ardnew/8642d8c0268d7a0f7e436e66dbdbbf88/raw/badge-mung-coverage.json
 
 # mung
 #### Manipulate PATH-like environment variables
 
-[![GoDoc][docimg]][docurl] [![Go Report Card][repimg]][repurl] [![codecov][covimg]][covurl]
+[![GoDoc][docimg]][docurl] [![Go Report Card][repimg]][repurl] [![Test Coverage][covimg]][covurl]
 
 The `mung` package contains a reusable module with types, methods, and so on.
 It is fully documented and includes test cases with 100% coverage.
