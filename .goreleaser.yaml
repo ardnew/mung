@@ -17,6 +17,10 @@ builds:
       - linux
       - windows
       - darwin
+    main: ./cmd/mung
+    binary: bin/mung
+    ldflags:
+      - -s -w -X mung.Version={{.Version}} -X main.Version={{.Version}} -X main.Commit={{.Commit}} -X main.Date={{.Date}} -X main.builtBy=goreleaser
 
 archives:
   - formats: [tar.gz]
