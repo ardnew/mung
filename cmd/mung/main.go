@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/ardnew/mung"
@@ -17,8 +18,9 @@ type flagSet struct {
 	remove  multiValue
 	prefix  multiValue
 	suffix  multiValue
-	verbose bool
 	nameref bool
+	verbose incFlag
+	version incFlag
 }
 
 func main() {
@@ -28,14 +30,17 @@ func main() {
 		remove:  multiValue{name: "r", desc: "items to remove"},
 		prefix:  multiValue{name: "a", desc: "items to prepend"},
 		suffix:  multiValue{name: "e", desc: "items to append"},
+		verbose: incFlag(0),
+		version: incFlag(0),
 	}
 	// Define command-line flags
 	flags.Var(&flags.delim, flags.delim.name, flags.delim.desc)
 	flags.Var(&flags.remove, flags.remove.name, flags.remove.desc)
 	flags.Var(&flags.prefix, flags.prefix.name, flags.prefix.desc)
 	flags.Var(&flags.suffix, flags.suffix.name, flags.suffix.desc)
-	flags.BoolVar(&flags.verbose, "v", false, "enable verbose output")
 	flags.BoolVar(&flags.nameref, "n", false, "subjects are env NAME references")
+	flags.Var(&flags.verbose, "v", "enable verbose output (incremental)")
+	flags.Var(&flags.version, "V", "print semantic version of cmd (or module if verbose)")
 
 	flags.Usage = flags.usage
 	if err := flags.Parse(os.Args[1:]); err != nil {
@@ -44,6 +49,16 @@ func main() {
 		}
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
+	}
+	
+	verb := flags.verbose.get()
+	if vers := flags.version.get(); vers > 0 {
+		if vers > 1 || verb > 0 {
+			fmt.Printf("github.com/ardnew/mung %s\n", mung.Version)
+		} else {
+			fmt.Printf("github.com/ardnew/mung/cmd/mung %s\n", Version)
+		}
+		os.Exit(0)
 	}
 
 	if len(flags.Args()) == 0 {
@@ -103,6 +118,7 @@ func (f *flagSet) subjects() ([]string, error) {
 }
 
 type (
+	incFlag int
 	soloValue struct {
 		solo string
 		zero string
@@ -116,6 +132,34 @@ type (
 		desc string
 	}
 )
+
+func (f *incFlag) Set(value string) error {
+	if f == nil {
+		return errors.New("uninitialized flag")
+	}
+	if value = strings.TrimSpace(value); value != "" {
+		if v, err := strconv.ParseBool(value); err == nil && v {
+			*f += 1
+    }
+	}
+	return nil
+}
+
+func (f *incFlag) get() int {
+  if f != nil {
+		return int(*f)
+	}
+	return 0
+}
+
+func (f *incFlag) IsBoolFlag() bool { return true }
+
+func (f *incFlag) String() string {
+	if f == nil {
+		return ""
+	}
+	return strconv.Itoa(int(*f))
+}
 
 func (v *soloValue) Set(value string) error {
 	if v == nil {
@@ -183,4 +227,4 @@ func (v *multiValue) get() []string {
 		return v.mult
 	}
 	return v.zero
-}
+}   
