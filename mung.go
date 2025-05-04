@@ -3,11 +3,18 @@
 package mung
 
 import (
+	_ "embed"
 	"iter"
 	"maps"
 	"slices"
 	"strings"
 )
+
+//go:embed VERSION
+var version string
+
+// Version returns the version of the mung package.
+func Version() string { return strings.TrimSpace(version) }
 
 // Option functions return their argument with modifications applied.
 type Option[T any] func(T) T
@@ -18,7 +25,7 @@ func Make[T any](opts ...Option[T]) (t T) { return Wrap(t, opts...) }
 // Wrap returns t after applying the given options.
 func Wrap[T any](t T, opts ...Option[T]) T {
 	for _, o := range opts {
-		t = o(t)
+		t = o(t) 
 	}
 	return t
 }

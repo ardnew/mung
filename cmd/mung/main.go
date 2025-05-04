@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "embed"
 	"errors"
 	"flag"
 	"fmt"
@@ -11,6 +12,12 @@ import (
 
 	"github.com/ardnew/mung"
 )
+
+//go:embed VERSION
+var version string
+
+// Version returns the semantic version of the mung command-line tool.
+func Version() string { return strings.TrimSpace(version) }
 
 type flagSet struct {
 	*flag.FlagSet
@@ -54,9 +61,9 @@ func main() {
 	verb := flags.verbose.get()
 	if vers := flags.version.get(); vers > 0 {
 		if vers > 1 || verb > 0 {
-			fmt.Printf("github.com/ardnew/mung %s\n", mung.Version)
+			fmt.Printf("github.com/ardnew/mung %s\n", mung.Version())
 		} else {
-			fmt.Printf("github.com/ardnew/mung/cmd/mung %s\n", Version)
+			fmt.Printf("github.com/ardnew/mung/cmd/mung %s\n", Version())
 		}
 		os.Exit(0)
 	}

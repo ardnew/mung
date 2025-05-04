@@ -6,6 +6,14 @@ import (
 	"testing"
 )
 
+// TestVersion tests the version of the package
+func TestVersion(t *testing.T) {
+	version := Version()
+	if version == "" {
+		t.Errorf("invalid Version() = %q", version)
+	}
+}
+
 // TestMake tests the Make generic function with various option combinations
 func TestMake(t *testing.T) {
 	tests := []struct {
