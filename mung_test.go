@@ -28,18 +28,18 @@ func TestMake(t *testing.T) {
 		},
 		{
 			name: "single_option",
-			opts: []Option[Config]{WithSubject("foo")},
+			opts: []Option[Config]{WithSubjectItems("foo")},
 			want: Config{subject: []string{"foo"}},
 		},
 		{
 			name: "multiple_options",
 			opts: []Option[Config]{
-				WithSubject("foo", "bar"),
+				WithSubjectItems("foo", "bar"),
 				WithDelim(":"),
-				WithRemove("baz"),
-				WithPrefix("pre"),
-				WithSuffix("suf"),
-				WithReplace(map[string]string{"foo": "replaced"}),
+				WithRemoveItems("baz"),
+				WithPrefixItems("pre"),
+				WithSuffixItems("suf"),
+				WithReplaceItem("foo", "replaced"),
 			},
 			want: Config{
 				subject: []string{"foo", "bar"},
@@ -95,27 +95,31 @@ func TestWrap(t *testing.T) {
 		},
 		{
 			name: "existing_config_new_options",
-			init: Config{delim: ",", subject: []string{"original"}},
+			init: Config{
+				delim:   ",",
+				subject: []string{"sub-og"},
+				prefix:  []string{"pre-og"},
+			},
 			opts: []Option[Config]{
-				WithSubject("new"),
-				WithPrefix("pre"),
+				WithSubjectItems("sub"),
+				WithPrefixItems("pre"),
 			},
 			expect: Config{
 				delim:   ",",
-				subject: []string{"new"},
-				prefix:  []string{"pre"},
+				subject: []string{"sub-og", "sub"},
+				prefix:  []string{"pre-og", "pre"},
 			},
 		},
 		{
 			name: "multiple_options_chain",
 			init: Config{},
 			opts: []Option[Config]{
-				WithSubject("a", "b"),
+				WithSubjectItems("a", "b"),
 				WithDelim(":"),
-				WithRemove("x"),
-				WithPrefix("pre"),
-				WithSuffix("suf"),
-				WithReplace(map[string]string{"a": "A"}),
+				WithRemoveItems("x"),
+				WithPrefixItems("pre"),
+				WithSuffixItems("suf"),
+				WithReplaceItem("a", "A"),
 			},
 			expect: Config{
 				subject: []string{"a", "b"},
@@ -132,7 +136,7 @@ func TestWrap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := Wrap(tt.init, tt.opts...)
 			if !configEqual(got, tt.expect) {
-				t.Errorf("Wrap() = %v, want %v", got, tt.expect)
+				t.Errorf("Wrap() = %+v, want %+v", got, tt.expect)
 			}
 		})
 	}
@@ -208,7 +212,7 @@ func TestConfigString(t *testing.T) {
 				subject: []string{"hello", "world"},
 				delim:   "",
 			},
-			want: "helloworld",
+			want: "helowrd",
 		},
 		{
 			name: "complex_case",
@@ -237,7 +241,7 @@ func TestConfigString(t *testing.T) {
 				delim:   ",",
 				prefix:  []string{"a", "c"},
 			},
-			want: "a,c,b",
+			want: "c,a,b",
 		},
 		{
 			name: "delimiter_character_in_items",
@@ -323,6 +327,7 @@ func TestConfigSeq(t *testing.T) {
 			name: "simple_subject",
 			config: Config{
 				subject: []string{"hello"},
+				delim:   ":",
 			},
 			want: []string{"hello"},
 		},
@@ -340,6 +345,7 @@ func TestConfigSeq(t *testing.T) {
 				subject: []string{"middle"},
 				prefix:  []string{"start"},
 				suffix:  []string{"end"},
+				delim:   ":",
 			},
 			want: []string{"start", "middle", "end"},
 		},
@@ -348,6 +354,7 @@ func TestConfigSeq(t *testing.T) {
 			config: Config{
 				subject: []string{"a", "b", "c"},
 				remove:  []string{"b"},
+				delim:   ":",
 			},
 			want: []string{"a", "c"},
 		},
@@ -356,6 +363,7 @@ func TestConfigSeq(t *testing.T) {
 			config: Config{
 				subject: []string{"hello", "world"},
 				replace: map[string]string{"hello": "hi"},
+				delim:   ":",
 			},
 			want: []string{"hi", "world"},
 		},
@@ -377,6 +385,7 @@ func TestConfigSeq(t *testing.T) {
 				subject: []string{"a", "b", "c"},
 				prefix:  []string{"x", "y"},
 				remove:  []string{"x", "a"},
+				delim:   ":",
 			},
 			want: []string{"y", "b", "c"},
 		},
@@ -395,7 +404,7 @@ func TestConfigSeq(t *testing.T) {
 				subject: []string{"a", "b", "a", "c", "b"},
 				prefix:  []string{"a", "d"},
 			},
-			want: []string{"a", "d", "b", "c"},
+			want: []string{"d", "a", "b", "c"},
 		},
 	}
 
@@ -456,7 +465,7 @@ func TestWithSubject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithSubject(tt.subjects...)(tt.initial)
+			config := WithSubject(tt.subjects)(tt.initial)
 			if !slicesEqual(config.Subject(), tt.want) {
 				t.Errorf("WithSubject() = %v, want %v", config.Subject(), tt.want)
 			}
@@ -594,7 +603,7 @@ func TestWithRemove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithRemove(tt.remove...)(tt.initial)
+			config := WithRemove(tt.remove)(tt.initial)
 			if !slicesEqual(config.Remove(), tt.want) {
 				t.Errorf("WithRemove() = %v, want %v", config.Remove(), tt.want)
 			}
@@ -674,13 +683,13 @@ func TestWithPrefix(t *testing.T) {
 		},
 		{
 			name:    "empty_to_multiple",
-			prefix:  []string{"world", "hello"},
+			prefix:  []string{"hello", "world"},
 			initial: Config{},
 			want:    []string{"hello", "world"},
 		},
 		{
 			name:    "replace_existing",
-			prefix:  []string{"new2", "new1"},
+			prefix:  []string{"new1", "new2"},
 			initial: Config{prefix: []string{"old1", "old2"}},
 			want:    []string{"new1", "new2"},
 		},
@@ -688,7 +697,7 @@ func TestWithPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithPrefix(tt.prefix...)(tt.initial)
+			config := WithPrefix(tt.prefix)(WithDelim(":")(tt.initial))
 			if !slicesEqual(config.Prefix(), tt.want) {
 				t.Errorf("WithPrefix() = %v, want %v", config.Prefix(), tt.want)
 			}
@@ -718,15 +727,15 @@ func TestWithPrefixItems(t *testing.T) {
 		},
 		{
 			name:    "nil_to_multiple",
-			prefix:  []string{"world", "hello"},
+			prefix:  []string{"hello", "world"},
 			initial: Config{},
 			want:    []string{"hello", "world"},
 		},
 		{
 			name:    "append_to_existing",
-			prefix:  []string{"new2", "new1"},
+			prefix:  []string{"new1", "new2"},
 			initial: Config{prefix: []string{"old1", "old2"}},
-			want:    []string{"new1", "new2", "old1", "old2"},
+			want:    []string{"old1", "old2", "new1", "new2"},
 		},
 		{
 			name:    "append_to_non-nil_empty",
@@ -782,7 +791,7 @@ func TestWithSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithSuffix(tt.suffix...)(tt.initial)
+			config := WithSuffix(tt.suffix)(tt.initial)
 			if !slicesEqual(config.Suffix(), tt.want) {
 				t.Errorf("WithSuffix() = %v, want %v", config.Suffix(), tt.want)
 			}
@@ -885,8 +894,8 @@ func TestWithReplace(t *testing.T) {
 	}
 }
 
-// TestWithReplaceItems tests the WithReplaceItems option function
-func TestWithReplaceItems(t *testing.T) {
+// TestWithReplaceEach tests the WithReplaceItems option function
+func TestWithReplaceEach(t *testing.T) {
 	tests := []struct {
 		name         string
 		replacePairs [][2]string
@@ -936,7 +945,26 @@ func TestWithReplaceItems(t *testing.T) {
 				}
 			}
 
-			config := WithReplaceItems(seq)(tt.initial)
+			config := WithReplaceEach(seq)(tt.initial)
+			got := config.Replace()
+			if !mapsEqual(got, tt.want) {
+				t.Errorf("WithReplaceEach() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Convert pairs to iter.Seq2
+			mapPairs := func(pairs ...[2]string) map[string]string {
+				m := make(map[string]string)
+				for _, pair := range pairs {
+					m[pair[0]] = pair[1]
+				}
+				return m
+			}
+
+			config := WithReplaceItems(mapPairs(tt.replacePairs...))(tt.initial)
 			got := config.Replace()
 			if !mapsEqual(got, tt.want) {
 				t.Errorf("WithReplaceItems() = %v, want %v", got, tt.want)
@@ -947,7 +975,7 @@ func TestWithReplaceItems(t *testing.T) {
 	// Test alternate form using WithReplaceItem
 	t.Run("WithReplaceItem_helper", func(t *testing.T) {
 		initial := Config{}
-		config := WithReplaceItems(
+		config := WithReplaceEach(
 			func(yield func(string, string) bool) {
 				if !yield("hello", "world") {
 					return
@@ -1011,7 +1039,7 @@ func TestSplit(t *testing.T) {
 			name:  "empty_delimiter",
 			delim: "",
 			input: []string{"hello", "world"},
-			want:  []string{"hello", "world"},
+			want:  []string{"h", "e", "l", "l", "o", "w", "o", "r", "l", "d"},
 		},
 		{
 			name:  "empty_elements_skipped",
@@ -1032,16 +1060,16 @@ func TestSplit(t *testing.T) {
 			want:  []string{},
 		},
 		{
-			name:  "duplicate_whole_strings_skipped",
+			name:  "duplicate_strings",
 			delim: ",",
 			input: []string{"hello", "hello", "world"},
-			want:  []string{"hello", "world"},
+			want:  []string{"hello", "hello", "world"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := slices.Collect(split(tt.delim, tt.input...))
+			got := slices.Collect(split(tt.delim, tt.input))
 			if !slicesEqual(got, tt.want) {
 				t.Errorf("split() = %v, want %v", got, tt.want)
 			}
@@ -1051,7 +1079,7 @@ func TestSplit(t *testing.T) {
 	// Test early termination
 	t.Run("early_termination", func(t *testing.T) {
 		result := []string{}
-		split(",", "a,b,c,d,e")(func(s string) bool {
+		splitEach(",", "a,b,c,d,e")(func(s string) bool {
 			if s == "c" {
 				return false
 			}
@@ -1101,40 +1129,34 @@ func TestMemoType(t *testing.T) {
 		}
 	})
 
-	t.Run("memoItems_single_slice", func(t *testing.T) {
-		m := memoItems([]string{"a", "b", "c"})
+	t.Run("memoizeItems_single_slice", func(t *testing.T) {
+		m := memoizeItems("a", "b", "c")
 		if !m.contains("a") || !m.contains("b") || !m.contains("c") {
-			t.Errorf("memoItems failed to properly initialize memo")
+			t.Errorf("memoizeItems failed to properly initialize memo")
 		}
 	})
 
-	t.Run("memoItems_multiple_slices", func(t *testing.T) {
-		m := memoItems([]string{"a", "b"}, []string{"c", "d"})
-		if !m.contains("a") || !m.contains("b") || !m.contains("c") || !m.contains("d") {
-			t.Errorf("memoItems failed to properly initialize memo from multiple slices")
-		}
-	})
-
-	t.Run("memoItems_with_duplicates", func(t *testing.T) {
-		m := memoItems([]string{"a", "b"}, []string{"b", "c"})
+	t.Run("memoizeItems_with_duplicates", func(t *testing.T) {
+		m := memoizeItems("a", "b", "b", "c")
 		expected := map[string]struct{}{
 			"a": {},
 			"b": {},
 			"c": {},
 		}
 		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
-			t.Errorf("memoItems didn't handle duplicates correctly")
+			t.Errorf("memoizeItems didn't handle duplicates correctly")
 		}
 	})
 
-	t.Run("memoItems_with_empty", func(t *testing.T) {
-		m := memoItems([]string{}, []string{"a", "b"})
+	t.Run("memoizeItems_with_empty", func(t *testing.T) {
+		m := memoizeItems("", "a", "", "b", "")
 		expected := map[string]struct{}{
+			"":  {},
 			"a": {},
 			"b": {},
 		}
 		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
-			t.Errorf("memoItems didn't handle empty slice correctly")
+			t.Errorf("memoizeItems() = %v, want %v", m, expected)
 		}
 	})
 }
@@ -1175,7 +1197,7 @@ func TestSumLen(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := sumLen(tt.input...); got != tt.want {
+			if got := sumLen(tt.input); got != tt.want {
 				t.Errorf("sumLen() = %v, want %v", got, tt.want)
 			}
 		})
@@ -1232,12 +1254,12 @@ func configEqual(a, b Config) bool {
 func TestComplexWorkflow(t *testing.T) {
 	// Create a config with all options set
 	c := Make(
-		WithSubject("one:two:three"),
+		WithSubjectItems("one:two:three"),
 		WithDelim(":"),
-		WithRemove("two"),
-		WithPrefix("start"),
-		WithSuffix("end"),
-		WithReplace(map[string]string{"three": "THREE"}),
+		WithRemoveItems("two"),
+		WithPrefixItems("start"),
+		WithSuffixItems("end"),
+		WithReplaceItem("three", "THREE"),
 	)
 
 	// Test that all options were set correctly
@@ -1340,4 +1362,75 @@ func TestCustomOptionType(t *testing.T) {
 	if c.Name != "initial" || c.Value != 99 {
 		t.Errorf("Custom Wrap() failed, got Name=%s Value=%d, want Name=initial Value=99", c.Name, c.Value)
 	}
+}
+
+func TestUniq(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []string
+		want  []string
+	}{
+		{
+			name:  "empty_input",
+			input: []string{},
+			want:  []string{},
+		},
+		{
+			name:  "single_item",
+			input: []string{"a"},
+			want:  []string{"a"},
+		},
+		{
+			name:  "all_unique",
+			input: []string{"a", "b", "c"},
+			want:  []string{"a", "b", "c"},
+		},
+		{
+			name:  "all_duplicates",
+			input: []string{"x", "x", "x"},
+			want:  []string{"x"},
+		},
+		{
+			name:  "interleaved_duplicates",
+			input: []string{"a", "b", "a", "c", "b", "d"},
+			want:  []string{"a", "b", "c", "d"},
+		},
+		{
+			name:  "duplicates_at_end",
+			input: []string{"a", "b", "c", "c", "c"},
+			want:  []string{"a", "b", "c"},
+		},
+		{
+			name:  "duplicates_at_start",
+			input: []string{"z", "z", "a", "b"},
+			want:  []string{"z", "a", "b"},
+		},
+		{
+			name:  "empty_strings",
+			input: []string{"", "", "a", "", "b"},
+			want:  []string{"", "a", "b"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.Collect(uniq(slices.Values(tt.input)))
+			if !slicesEqual(got, tt.want) {
+				t.Errorf("uniq() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("early_termination", func(t *testing.T) {
+		input := []string{"a", "b", "a", "c"}
+		collected := []string{}
+		uniq(slices.Values(input))(func(s string) bool {
+			collected = append(collected, s)
+			return len(collected) < 2 // stop after two unique items
+		})
+		want := []string{"a", "b"}
+		if !slicesEqual(collected, want) {
+			t.Errorf("uniq() early termination = %v, want %v", collected, want)
+		}
+	})
 }

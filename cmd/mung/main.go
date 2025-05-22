@@ -35,8 +35,8 @@ func main() {
 		FlagSet: flag.NewFlagSet("mung", flag.ContinueOnError),
 		delim:   soloValue{zero: ":", name: "d", desc: "item delimiter"},
 		remove:  multiValue{name: "r", desc: "items to remove"},
-		prefix:  multiValue{name: "a", desc: "items to prepend"},
-		suffix:  multiValue{name: "e", desc: "items to append"},
+		prefix:  multiValue{name: "p", desc: "items to prefix subject(s)"},
+		suffix:  multiValue{name: "s", desc: "items to suffix subject(s)"},
 		verbose: incFlag(0),
 		version: incFlag(0),
 	}
@@ -47,7 +47,7 @@ func main() {
 	flags.Var(&flags.suffix, flags.suffix.name, flags.suffix.desc)
 	flags.BoolVar(&flags.nameref, "n", false, "subjects are env NAME references")
 	flags.Var(&flags.verbose, "v", "enable verbose output (incremental)")
-	flags.Var(&flags.version, "V", "print semantic version of cmd (or module if verbose)")
+	flags.Var(&flags.version, "V", "print semantic version of cmd (with module if verbose)")
 
 	flags.Usage = flags.usage
 	if err := flags.Parse(os.Args[1:]); err != nil {
@@ -57,14 +57,13 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	verb := flags.verbose.get()
 	if vers := flags.version.get(); vers > 0 {
 		if vers > 1 || verb > 0 {
 			fmt.Printf("github.com/ardnew/mung %s\n", mung.Version())
-		} else {
-			fmt.Printf("github.com/ardnew/mung/cmd/mung %s\n", Version())
 		}
+		fmt.Printf("github.com/ardnew/mung/cmd/mung %s\n", Version())
 		os.Exit(0)
 	}
 
@@ -81,27 +80,32 @@ func main() {
 	}
 
 	opts := []mung.Option[mung.Config]{
-		mung.WithSubject(subjects...),
+		mung.WithSubject(subjects),
 		mung.WithDelim(flags.delim.get()),
 	}
 
 	if remove := flags.remove.get(); len(remove) > 0 {
-		opts = append(opts, mung.WithRemove(remove...))
+		opts = append(opts, mung.WithRemove(remove))
 	}
 	if prefix := flags.prefix.get(); len(prefix) > 0 {
-		opts = append(opts, mung.WithPrefix(prefix...))
+		opts = append(opts, mung.WithPrefix(prefix))
 	}
 	if suffix := flags.suffix.get(); len(suffix) > 0 {
-		opts = append(opts, mung.WithSuffix(suffix...))
+		opts = append(opts, mung.WithSuffix(suffix))
 	}
 
 	seq := mung.Make(opts...).Seq()
 
-	println(strings.Join(slices.Collect(seq), flags.delim.get()))
+	fmt.Fprint(
+		os.Stdout,
+		strings.Join(slices.Collect(seq), flags.delim.get()),
+	)
 }
 
 func (f *flagSet) usage() {
-	fmt.Fprintf(f.Output(), "Usage: %s [options] <subjects>\n", f.Name())
+	fmt.Fprintf(f.Output(), "%s version %s (module %s)\n",
+		f.Name(), Version(), mung.Version())
+	fmt.Fprintf(f.Output(), "\nUsage:\n  %s [options] <subjects>\n", f.Name())
 	fmt.Fprintln(f.Output(), "\nOptions:")
 	f.PrintDefaults()
 	fmt.Fprintln(f.Output(), "\nSubjects:")
@@ -125,7 +129,7 @@ func (f *flagSet) subjects() ([]string, error) {
 }
 
 type (
-	incFlag int
+	incFlag   int
 	soloValue struct {
 		solo string
 		zero string
@@ -147,13 +151,13 @@ func (f *incFlag) Set(value string) error {
 	if value = strings.TrimSpace(value); value != "" {
 		if v, err := strconv.ParseBool(value); err == nil && v {
 			*f += 1
-    }
+		}
 	}
 	return nil
 }
 
 func (f *incFlag) get() int {
-  if f != nil {
+	if f != nil {
 		return int(*f)
 	}
 	return 0
@@ -234,4 +238,4 @@ func (v *multiValue) get() []string {
 		return v.mult
 	}
 	return v.zero
-}   
+}
