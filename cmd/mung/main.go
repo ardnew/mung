@@ -130,12 +130,18 @@ func (f *flagSet) usage() {
 	)
 	fmt.Fprintln(
 		f.Output(),
-		"\n║ OPTIONS\n",
+		"\n║ OPTIONS",
+	)
+	fmt.Fprintln(
+		f.Output(),
 	)
 	f.PrintDefaults()
 	fmt.Fprintln(
 		f.Output(),
-		"\n║ SUBJECTS\n",
+		"\n║ SUBJECTS",
+	)
+	fmt.Fprintln(
+		f.Output(),
 	)
 	fmt.Fprintln(
 		f.Output(),
@@ -159,7 +165,10 @@ func (f *flagSet) usage() {
 	)
 	fmt.Fprintln(
 		f.Output(),
-		"\n║ FILTERING\n",
+		"\n║ FILTERING",
+	)
+	fmt.Fprintln(
+		f.Output(),
 	)
 	fmt.Fprintln(
 		f.Output(),
