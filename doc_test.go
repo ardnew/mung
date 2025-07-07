@@ -17,9 +17,10 @@ func ExampleVersion() {
 	version := Version()
 
 	fmt.Println(version)
-//go:generate bash -c "sed -i'' ${DOLLAR}((${GOLINE}+1))$'s|^.*${DOLLAR}|\t// Output: '\"${DOLLAR}(cat VERSION)\"'|' '${GOFILE}'"
-	// Output: 0.2.0
+	// Output: 0.3.0
 }
+
+//go:generate bash -c "sed -i'' ${DOLLAR}((${GOLINE}-3))$'s|.*|\t// Output: '\"${DOLLAR}(cat VERSION)\"'|' '${GOFILE}'"
 
 // ExampleMake demonstrates creating a new Config with options.
 func ExampleMake() {
@@ -236,6 +237,20 @@ func ExampleWithReplaceItems() {
 	// Output: /usr/local/bin:/opt/bin:/sbin
 }
 
+// ExampleWithPredicate demonstrates filtering elements using a predicate.
+func ExampleWithPredicate() {
+	config := Make(
+		WithSubject([]string{"/usr/local/bin:/usr/bin:/bin"}),
+		WithDelim(":"),
+		WithPredicate(func(s string) bool {
+			return !strings.Contains(s, "local")
+		}),
+	)
+
+	fmt.Println(config.String())
+	// Output: /usr/bin:/bin
+}
+
 // ExampleConfig_String demonstrates the String method.
 func ExampleConfig_String() {
 	config := Make(
@@ -326,8 +341,8 @@ func ExampleConfig_Replace() {
 	// /usr/bin -> /opt/bin
 }
 
-// ExampleConfig_Seq demonstrates iterating through the processed sequence.
-func ExampleConfig_Seq() {
+// ExampleConfig_All demonstrates iterating through the processed sequence.
+func ExampleConfig_All() {
 	config := Make(
 		WithSubject([]string{"/usr/bin:/bin"}),
 		WithDelim(":"),
@@ -337,7 +352,7 @@ func ExampleConfig_Seq() {
 
 	// Collect results using the iterator
 	var result []string
-	config.Seq()(func(s string) bool {
+	config.All()(func(s string) bool {
 		result = append(result, s)
 		return true
 	})

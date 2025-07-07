@@ -1,20 +1,14 @@
 package mung
 
 import (
+	"iter"
 	"reflect"
 	"slices"
 	"testing"
 )
 
-// TestVersion tests the version of the package
-func TestVersion(t *testing.T) {
-	version := Version()
-	if version == "" {
-		t.Errorf("invalid Version() = %q", version)
-	}
-}
+// --- Option/Config construction tests ---
 
-// TestMake tests the Make generic function with various option combinations
 func TestMake(t *testing.T) {
 	tests := []struct {
 		name string
@@ -79,7 +73,6 @@ func TestMake(t *testing.T) {
 	}
 }
 
-// TestWrap tests applying options to an existing object
 func TestWrap(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -142,7 +135,95 @@ func TestWrap(t *testing.T) {
 	}
 }
 
-// TestConfigString tests the String method of Config
+func TestCustomOptionType(t *testing.T) {
+	type CustomConfig struct {
+		Name  string
+		Value int
+	}
+
+	withName := func(name string) Option[CustomConfig] {
+		return func(c CustomConfig) CustomConfig {
+			c.Name = name
+			return c
+		}
+	}
+
+	withValue := func(value int) Option[CustomConfig] {
+		return func(c CustomConfig) CustomConfig {
+			c.Value = value
+			return c
+		}
+	}
+
+	// Test Make
+	c := Make(
+		withName("test"),
+		withValue(42),
+	)
+
+	if c.Name != "test" || c.Value != 42 {
+		t.Errorf("Custom Make() failed, got Name=%s Value=%d, want Name=test Value=42", c.Name, c.Value)
+	}
+
+	// Test Wrap
+	initial := CustomConfig{Name: "initial", Value: 0}
+	c = Wrap(initial, withValue(99))
+
+	if c.Name != "initial" || c.Value != 99 {
+		t.Errorf("Custom Wrap() failed, got Name=%s Value=%d, want Name=initial Value=99", c.Name, c.Value)
+	}
+}
+
+// --- Config accessors and string output ---
+
+func TestConfigAccessors(t *testing.T) {
+	config := Config{
+		subject: []string{"a", "b"},
+		delim:   ":",
+		remove:  []string{"x", "y"},
+		prefix:  []string{"p1", "p2"},
+		suffix:  []string{"s1", "s2"},
+		replace: map[string]string{"a": "A", "b": "B"},
+	}
+
+	// Test Subject accessor
+	if !slicesEqual(config.Subject(), []string{"a", "b"}) {
+		t.Errorf("Config.Subject() = %v, want %v", config.Subject(), []string{"a", "b"})
+	}
+
+	// Test Delim accessor
+	if config.Delim() != ":" {
+		t.Errorf("Config.Delim() = %v, want %v", config.Delim(), ":")
+	}
+
+	// Test Remove accessor
+	if !slicesEqual(config.Remove(), []string{"x", "y"}) {
+		t.Errorf("Config.Remove() = %v, want %v", config.Remove(), []string{"x", "y"})
+	}
+
+	// Test Prefix accessor
+	if !slicesEqual(config.Prefix(), []string{"p1", "p2"}) {
+		t.Errorf("Config.Prefix() = %v, want %v", config.Prefix(), []string{"p1", "p2"})
+	}
+
+	// Test Suffix accessor
+	if !slicesEqual(config.Suffix(), []string{"s1", "s2"}) {
+		t.Errorf("Config.Suffix() = %v, want %v", config.Suffix(), []string{"s1", "s2"})
+	}
+
+	// Test Replace accessor makes a copy
+	replaceMap := config.Replace()
+	if !mapsEqual(replaceMap, map[string]string{"a": "A", "b": "B"}) {
+		t.Errorf("Config.Replace() = %v, want %v", replaceMap, map[string]string{"a": "A", "b": "B"})
+	}
+
+	// Verify that modifying the returned map doesn't affect the original
+	replaceMap["a"] = "Modified"
+	if config.replace["a"] != "A" {
+		t.Errorf("Config.Replace() did not return a copy; original map was modified")
+	}
+}
+
 func TestConfigString(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -262,57 +343,9 @@ func TestConfigString(t *testing.T) {
 	}
 }
 
-// TestConfigAccessors tests all getter methods of Config
-func TestConfigAccessors(t *testing.T) {
-	config := Config{
-		subject: []string{"a", "b"},
-		delim:   ":",
-		remove:  []string{"x", "y"},
-		prefix:  []string{"p1", "p2"},
-		suffix:  []string{"s1", "s2"},
-		replace: map[string]string{"a": "A", "b": "B"},
-	}
+// --- Config sequence and filtering ---
 
-	// Test Subject accessor
-	if !slicesEqual(config.Subject(), []string{"a", "b"}) {
-		t.Errorf("Config.Subject() = %v, want %v", config.Subject(), []string{"a", "b"})
-	}
-
-	// Test Delim accessor
-	if config.Delim() != ":" {
-		t.Errorf("Config.Delim() = %v, want %v", config.Delim(), ":")
-	}
-
-	// Test Remove accessor
-	if !slicesEqual(config.Remove(), []string{"x", "y"}) {
-		t.Errorf("Config.Remove() = %v, want %v", config.Remove(), []string{"x", "y"})
-	}
-
-	// Test Prefix accessor
-	if !slicesEqual(config.Prefix(), []string{"p1", "p2"}) {
-		t.Errorf("Config.Prefix() = %v, want %v", config.Prefix(), []string{"p1", "p2"})
-	}
-
-	// Test Suffix accessor
-	if !slicesEqual(config.Suffix(), []string{"s1", "s2"}) {
-		t.Errorf("Config.Suffix() = %v, want %v", config.Suffix(), []string{"s1", "s2"})
-	}
-
-	// Test Replace accessor makes a copy
-	replaceMap := config.Replace()
-	if !mapsEqual(replaceMap, map[string]string{"a": "A", "b": "B"}) {
-		t.Errorf("Config.Replace() = %v, want %v", replaceMap, map[string]string{"a": "A", "b": "B"})
-	}
-
-	// Verify that modifying the returned map doesn't affect the original
-	replaceMap["a"] = "Modified"
-	if config.replace["a"] != "A" {
-		t.Errorf("Config.Replace() did not return a copy; original map was modified")
-	}
-}
-
-// TestConfigSeq tests the Seq method of Config under various configurations
-func TestConfigSeq(t *testing.T) {
+func TestConfigAll(t *testing.T) {
 	tests := []struct {
 		name   string
 		config Config
@@ -410,14 +443,14 @@ func TestConfigSeq(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := slices.Collect(tt.config.Seq())
+			got := slices.Collect(tt.config.All())
 			if !slicesEqual(got, tt.want) {
 				t.Errorf("Config.Seq() collected = %v, want %v", got, tt.want)
 			}
 
 			// Test early termination by stopping after first item
 			earlyTermResults := []string{}
-			tt.config.Seq()(func(s string) bool {
+			tt.config.All()(func(s string) bool {
 				earlyTermResults = append(earlyTermResults, s)
 				return len(earlyTermResults) < 1 // only process one item
 			})
@@ -429,7 +462,176 @@ func TestConfigSeq(t *testing.T) {
 	}
 }
 
-// TestWithSubject tests the WithSubject option function
+func TestConfigFiltered(t *testing.T) {
+	tests := []struct {
+		name   string
+		config Config
+		filter func(string) bool
+		want   []string
+	}{
+		{
+			name: "filter_none",
+			config: Config{
+				subject: []string{"one", "two", "three"},
+			},
+			want: []string{"one", "two", "three"},
+		},
+		{
+			name: "filter_even_length",
+			config: Config{
+				subject:   []string{"one", "33", "three", "four"},
+				predicate: func(s string) bool { return len(s)%2 == 0 },
+			},
+			want: []string{"33", "four"},
+		},
+		{
+			name: "filter_starts_with_runes",
+			config: Config{
+				subject:   []string{"apple", "banana", "cherry", "date"},
+				predicate: func(s string) bool { return s[0] == 'd' || s[0] == 'b' },
+			},
+			want: []string{"banana", "date"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := slices.Collect(Wrap(tt.config, WithDelim(",")).Filtered())
+			if !slicesEqual(got, tt.want) {
+				t.Errorf("Config.Filtered() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfigSeqFilterBranches(t *testing.T) {
+	c := Config{subject: []string{"a", "b"}}
+	// filter=false
+	got := slices.Collect(c.seq(false))
+	if !slicesEqual(got, []string{"a", "b"}) {
+		t.Errorf("seq(false) = %v, want [a b]", got)
+	}
+	// filter=true, with predicate
+	c = Wrap(c, WithPredicate(func(s string) bool { return s == "b" }))
+	got = slices.Collect(c.seq(true))
+	if !slicesEqual(got, []string{"b"}) {
+		t.Errorf("seq(true) = %v, want [b]", got)
+	}
+}
+
+func TestConfigAllNilPredicate(t *testing.T) {
+	c := Config{subject: []string{"a", "b"}}
+	got := slices.Collect(c.All())
+	if !slicesEqual(got, []string{"a", "b"}) {
+		t.Errorf("All() with nil predicate = %v, want [a b]", got)
+	}
+}
+
+func TestConfigFilteredNilPredicate(t *testing.T) {
+	c := Config{subject: []string{"a", "b"}}
+	got := slices.Collect(c.Filtered())
+	if !slicesEqual(got, []string{"a", "b"}) {
+		t.Errorf("Filtered() with nil predicate = %v, want [a b]", got)
+	}
+}
+
+func TestConfigPredicateDefaultAndCustom(t *testing.T) {
+	c := Config{}
+	// Default predicate should accept all
+	pred := c.Predicate()
+	if !pred("foo") {
+		t.Errorf("Default Predicate() should accept all")
+	}
+	// Custom predicate
+	c = Wrap(c, WithPredicate(func(s string) bool { return s == "bar" }))
+	pred = c.Predicate()
+	if pred("foo") {
+		t.Errorf("Custom Predicate() should reject 'foo'")
+	}
+	if !pred("bar") {
+		t.Errorf("Custom Predicate() should accept 'bar'")
+	}
+}
+
+func TestConfig_filter(t *testing.T) {
+	tests := []struct {
+		name      string
+		seq       []string
+		predicate func(string) bool
+		want      []string
+	}{
+		{
+			name:      "nil_predicate_returns_all",
+			seq:       []string{"a", "b", "c"},
+			predicate: nil,
+			want:      []string{"a", "b", "c"},
+		},
+		{
+			name:      "predicate_even_length",
+			seq:       []string{"one", "22", "four", "x"},
+			predicate: func(s string) bool { return len(s)%2 == 0 },
+			want:      []string{"22", "four"},
+		},
+		{
+			name:      "predicate_none_match",
+			seq:       []string{"a", "b"},
+			predicate: func(s string) bool { return false },
+			want:      []string{},
+		},
+		{
+			name:      "predicate_all_match",
+			seq:       []string{"foo", "bar"},
+			predicate: func(s string) bool { return true },
+			want:      []string{"foo", "bar"},
+		},
+		{
+			name:      "predicate_first_char_is_b",
+			seq:       []string{"apple", "banana", "berry", "cherry"},
+			predicate: func(s string) bool { return len(s) > 0 && s[0] == 'b' },
+			want:      []string{"banana", "berry"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := Config{predicate: tt.predicate}
+			got := slices.Collect(cfg.filter(func(yield func(string) bool) {
+				for _, s := range tt.seq {
+					if !yield(s) {
+						return
+					}
+				}
+			}))
+			if !slicesEqual(got, tt.want) {
+				t.Errorf("filter() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+
+	t.Run("early_return", func(t *testing.T) {
+		cfg := Config{
+			predicate: func(s string) bool { return true },
+		}
+		seq := []string{"a", "b", "c"}
+		collected := []string{}
+		cfg.filter(func(yield func(string) bool) {
+			for _, s := range seq {
+				if !yield(s) {
+					return
+				}
+			}
+		})(func(s string) bool {
+			collected = append(collected, s)
+			return false // stop after first
+		})
+		if len(collected) != 1 || collected[0] != "a" {
+			t.Errorf("early return failed, got %v, want [a]", collected)
+		}
+	})
+}
+
+// --- Option functions ---
+
 func TestWithSubject(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -465,7 +667,7 @@ func TestWithSubject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithSubject(tt.subjects)(tt.initial)
+			config := Wrap(tt.initial, WithSubject(tt.subjects))
 			if !slicesEqual(config.Subject(), tt.want) {
 				t.Errorf("WithSubject() = %v, want %v", config.Subject(), tt.want)
 			}
@@ -473,7 +675,6 @@ func TestWithSubject(t *testing.T) {
 	}
 }
 
-// TestWithSubjectItems tests the WithSubjectItems option function
 func TestWithSubjectItems(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -523,7 +724,6 @@ func TestWithSubjectItems(t *testing.T) {
 	}
 }
 
-// TestWithDelim tests the WithDelim option function
 func TestWithDelim(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -559,7 +759,7 @@ func TestWithDelim(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithDelim(tt.delim)(tt.initial)
+			config := Wrap(tt.initial, WithDelim(tt.delim))
 			if config.Delim() != tt.want {
 				t.Errorf("WithDelim() = %v, want %v", config.Delim(), tt.want)
 			}
@@ -567,7 +767,6 @@ func TestWithDelim(t *testing.T) {
 	}
 }
 
-// TestWithRemove tests the WithRemove option function
 func TestWithRemove(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -603,7 +802,7 @@ func TestWithRemove(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithRemove(tt.remove)(tt.initial)
+			config := Wrap(tt.initial, WithRemove(tt.remove))
 			if !slicesEqual(config.Remove(), tt.want) {
 				t.Errorf("WithRemove() = %v, want %v", config.Remove(), tt.want)
 			}
@@ -611,7 +810,6 @@ func TestWithRemove(t *testing.T) {
 	}
 }
 
-// TestWithRemoveItems tests the WithRemoveItems option function
 func TestWithRemoveItems(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -661,7 +859,6 @@ func TestWithRemoveItems(t *testing.T) {
 	}
 }
 
-// TestWithPrefix tests the WithPrefix option function
 func TestWithPrefix(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -697,7 +894,7 @@ func TestWithPrefix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithPrefix(tt.prefix)(WithDelim(":")(tt.initial))
+			config := Wrap(tt.initial, WithPrefix(tt.prefix), WithDelim(":"))
 			if !slicesEqual(config.Prefix(), tt.want) {
 				t.Errorf("WithPrefix() = %v, want %v", config.Prefix(), tt.want)
 			}
@@ -705,7 +902,6 @@ func TestWithPrefix(t *testing.T) {
 	}
 }
 
-// TestWithPrefixItems tests the WithPrefixItems option function
 func TestWithPrefixItems(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -755,7 +951,6 @@ func TestWithPrefixItems(t *testing.T) {
 	}
 }
 
-// TestWithSuffix tests the WithSuffix option function
 func TestWithSuffix(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -791,7 +986,7 @@ func TestWithSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithSuffix(tt.suffix)(tt.initial)
+			config := Wrap(tt.initial, WithSuffix(tt.suffix))
 			if !slicesEqual(config.Suffix(), tt.want) {
 				t.Errorf("WithSuffix() = %v, want %v", config.Suffix(), tt.want)
 			}
@@ -799,7 +994,6 @@ func TestWithSuffix(t *testing.T) {
 	}
 }
 
-// TestWithSuffixItems tests the WithSuffixItems option function
 func TestWithSuffixItems(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -849,7 +1043,6 @@ func TestWithSuffixItems(t *testing.T) {
 	}
 }
 
-// TestWithReplace tests the WithReplace option function
 func TestWithReplace(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -885,7 +1078,7 @@ func TestWithReplace(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := WithReplace(tt.replace)(tt.initial)
+			config := Wrap(tt.initial, WithReplace(tt.replace))
 			got := config.Replace()
 			if !mapsEqual(got, tt.want) {
 				t.Errorf("WithReplace() = %v, want %v", got, tt.want)
@@ -894,7 +1087,6 @@ func TestWithReplace(t *testing.T) {
 	}
 }
 
-// TestWithReplaceEach tests the WithReplaceItems option function
 func TestWithReplaceEach(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -989,6 +1181,110 @@ func TestWithReplaceEach(t *testing.T) {
 			t.Errorf("WithReplaceItem() = %v, want %v", got, want)
 		}
 	})
+}
+
+func TestWithPredicate(t *testing.T) {
+	tests := []struct {
+		name      string
+		predicate func(string) bool
+		initial   Config
+		want      []string
+	}{
+		{
+			name:      "accept_all",
+			predicate: nil,
+			initial: Config{
+				subject: []string{"one", "two", "three"},
+			},
+			want: []string{"one", "two", "three"},
+		},
+		{
+			name:      "filter_even_length",
+			predicate: func(s string) bool { return len(s)%2 == 0 },
+			initial: Config{
+				subject: []string{"one", "33", "three", "four"},
+			},
+			want: []string{"33", "four"},
+		},
+		{
+			name:      "filter_starts_with_t",
+			predicate: func(s string) bool { return len(s) > 0 && s[0] == 't' },
+			initial: Config{
+				subject: []string{"one", "two", "three", "ten"},
+			},
+			want: []string{"two", "three", "ten"},
+		},
+		{
+			name:      "filter_empty_subject",
+			predicate: func(s string) bool { return true },
+			initial: Config{
+				subject: []string{},
+			},
+			want: []string{},
+		},
+		{
+			name:      "filter_none_match",
+			predicate: func(s string) bool { return false },
+			initial: Config{
+				subject: []string{"a", "b", "c"},
+			},
+			want: []string{},
+		},
+		{
+			name:      "filter_length_gt_3",
+			predicate: func(s string) bool { return len(s) > 3 },
+			initial: Config{
+				subject: []string{"one", "four", "seven", "hi"},
+			},
+			want: []string{"four", "seven"},
+		},
+		{
+			name:      "filter_with_delim_and_duplicates",
+			predicate: func(s string) bool { return s == "a" || s == "b" },
+			initial: Config{
+				subject: []string{"a,b,a,c"},
+			},
+			want: []string{"a", "b"},
+		},
+		{
+			name:      "filter_with_prefix_and_suffix",
+			predicate: func(s string) bool { return s != "skip" },
+			initial: Config{
+				subject: []string{"keep", "skip", "keep"},
+				prefix:  []string{"skip", "pre", "skip"},
+				suffix:  []string{"skip", "post", "pre", "post"},
+			},
+			want: []string{"pre", "keep", "post"},
+		},
+		{
+			name:      "filter_with_remove",
+			predicate: func(s string) bool { return true },
+			initial: Config{
+				subject: []string{"a", "b", "c"},
+				remove:  []string{"b"},
+			},
+			want: []string{"a", "c"},
+		},
+		{
+			name:      "filter_with_replace",
+			predicate: func(s string) bool { return true },
+			initial: Config{
+				subject: []string{"foo", "bar"},
+				replace: map[string]string{"foo": "baz"},
+			},
+			want: []string{"baz", "bar"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := Wrap(tt.initial, WithPredicate(tt.predicate), WithDelim(","))
+			got := slices.Collect(config.Filtered())
+			if !slicesEqual(got, tt.want) {
+				t.Errorf("WithPredicate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
 
 // TestSplit tests the internal split function which is key to Config.Seq behavior
@@ -1094,74 +1390,13 @@ func TestSplit(t *testing.T) {
 	})
 }
 
-// TestMemoType tests the internal memo type and its methods
-func TestMemoType(t *testing.T) {
-	t.Run("empty_memo", func(t *testing.T) {
-		m := memo[string]{}
-		if m.contains("test") {
-			t.Errorf("empty memo should not contain 'test'")
-		}
-	})
-
-	t.Run("add_and_contains", func(t *testing.T) {
-		m := memo[string]{}
-		m.add("test")
-		if !m.contains("test") {
-			t.Errorf("memo should contain 'test' after adding it")
-		}
-	})
-
-	t.Run("seen_first_call", func(t *testing.T) {
-		m := memo[string]{}
-		if m.seen("test") {
-			t.Errorf("first call to seen() should return false")
-		}
-		if !m.contains("test") {
-			t.Errorf("memo should contain 'test' after seen() call")
-		}
-	})
-
-	t.Run("seen_second_call", func(t *testing.T) {
-		m := memo[string]{}
-		m.seen("test")
-		if !m.seen("test") {
-			t.Errorf("second call to seen() should return true")
-		}
-	})
-
-	t.Run("memoizeItems_single_slice", func(t *testing.T) {
-		m := memoizeItems("a", "b", "c")
-		if !m.contains("a") || !m.contains("b") || !m.contains("c") {
-			t.Errorf("memoizeItems failed to properly initialize memo")
-		}
-	})
-
-	t.Run("memoizeItems_with_duplicates", func(t *testing.T) {
-		m := memoizeItems("a", "b", "b", "c")
-		expected := map[string]struct{}{
-			"a": {},
-			"b": {},
-			"c": {},
-		}
-		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
-			t.Errorf("memoizeItems didn't handle duplicates correctly")
-		}
-	})
-
-	t.Run("memoizeItems_with_empty", func(t *testing.T) {
-		m := memoizeItems("", "a", "", "b", "")
-		expected := map[string]struct{}{
-			"":  {},
-			"a": {},
-			"b": {},
-		}
-		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
-			t.Errorf("memoizeItems() = %v, want %v", m, expected)
-		}
-	})
+func TestSplitEmptyDelimiterAndInput(t *testing.T) {
+	got := slices.Collect(split("", []string{}))
+	if len(got) != 0 {
+		t.Errorf("split(empty delimiter, empty input) = %v, want []", got)
+	}
 }
 
-// TestSumLen tests the internal sumLen function
 func TestSumLen(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -1204,163 +1439,34 @@ func TestSumLen(t *testing.T) {
 	}
 }
 
-// Helper function to compare slices for equality
-func slicesEqual[T comparable](a, b []T) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-// Helper function to compare maps for equality
-func mapsEqual[K, V comparable](a, b map[K]V) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, va := range a {
-		if vb, ok := b[k]; !ok || va != vb {
-			return false
-		}
-	}
-	return true
-}
-
-// Helper function to compare Config objects for equality
-func configEqual(a, b Config) bool {
-	if !slicesEqual(a.subject, b.subject) {
-		return false
-	}
-	if a.delim != b.delim {
-		return false
-	}
-	if !slicesEqual(a.remove, b.remove) {
-		return false
-	}
-	if !slicesEqual(a.prefix, b.prefix) {
-		return false
-	}
-	if !slicesEqual(a.suffix, b.suffix) {
-		return false
-	}
-	return mapsEqual(a.replace, b.replace)
-}
-
-// TestComplexWorkflow tests a complex workflow combining multiple operations
-func TestComplexWorkflow(t *testing.T) {
-	// Create a config with all options set
-	c := Make(
-		WithSubjectItems("one:two:three"),
-		WithDelim(":"),
-		WithRemoveItems("two"),
-		WithPrefixItems("start"),
-		WithSuffixItems("end"),
-		WithReplaceItem("three", "THREE"),
-	)
-
-	// Test that all options were set correctly
-	if !slicesEqual(c.Subject(), []string{"one:two:three"}) {
-		t.Errorf("Subject was not set correctly: %v", c.Subject())
-	}
-
-	if c.Delim() != ":" {
-		t.Errorf("Delim was not set correctly: %v", c.Delim())
-	}
-
-	if !slicesEqual(c.Remove(), []string{"two"}) {
-		t.Errorf("Remove was not set correctly: %v", c.Remove())
-	}
-
-	if !slicesEqual(c.Prefix(), []string{"start"}) {
-		t.Errorf("Prefix was not set correctly: %v", c.Prefix())
-	}
-
-	if !slicesEqual(c.Suffix(), []string{"end"}) {
-		t.Errorf("Suffix was not set correctly: %v", c.Suffix())
-	}
-
-	if !mapsEqual(c.Replace(), map[string]string{"three": "THREE"}) {
-		t.Errorf("Replace was not set correctly: %v", c.Replace())
-	}
-
-	// Test the sequence
-	expectedSeq := []string{"start", "one", "THREE", "end"}
-	gotSeq := slices.Collect(c.Seq())
-	if !slicesEqual(gotSeq, expectedSeq) {
-		t.Errorf("Seq() = %v, want %v", gotSeq, expectedSeq)
-	}
-
-	// Test the string output
-	expectedStr := "start:one:THREE:end"
-	gotStr := c.String()
-	if gotStr != expectedStr {
-		t.Errorf("String() = %v, want %v", gotStr, expectedStr)
-	}
-
-	// Modify the config with additional options
-	c = Wrap(c,
-		WithSubjectItems("four:five"),
-		WithRemoveItems("five"),
-		WithPrefixItems("prestart"),
-		WithSuffixItems("endend"),
-	)
-
-	// Verify modified configuration
-	expectedSeq = []string{"prestart", "start", "one", "THREE", "four", "end", "endend"}
-	gotSeq = slices.Collect(c.Seq())
-	if !slicesEqual(gotSeq, expectedSeq) {
-		t.Errorf("Modified Seq() = %v, want %v", gotSeq, expectedSeq)
-	}
-
-	// Verify string output after modification
-	expectedStr = "prestart:start:one:THREE:four:end:endend"
-	gotStr = c.String()
-	if gotStr != expectedStr {
-		t.Errorf("Modified String() = %v, want %v", gotStr, expectedStr)
+func TestSumLenNilInput(t *testing.T) {
+	if sumLen(nil) != 0 {
+		t.Errorf("sumLen(nil) != 0")
 	}
 }
 
-// TestCustomOptionType tests using the Option type with a custom struct
-func TestCustomOptionType(t *testing.T) {
-	type CustomConfig struct {
-		Name  string
-		Value int
+func TestReverse(t *testing.T) {
+	tests := []struct {
+		name string
+		in   []string
+		want []string
+	}{
+		{"empty", []string{}, []string{}},
+		{"single", []string{"a"}, []string{"a"}},
+		{"two", []string{"a", "b"}, []string{"b", "a"}},
+		{"three", []string{"a", "b", "c"}, []string{"c", "b", "a"}},
 	}
-
-	withName := func(name string) Option[CustomConfig] {
-		return func(c CustomConfig) CustomConfig {
-			c.Name = name
-			return c
-		}
-	}
-
-	withValue := func(value int) Option[CustomConfig] {
-		return func(c CustomConfig) CustomConfig {
-			c.Value = value
-			return c
-		}
-	}
-
-	// Test Make
-	c := Make(
-		withName("test"),
-		withValue(42),
-	)
-
-	if c.Name != "test" || c.Value != 42 {
-		t.Errorf("Custom Make() failed, got Name=%s Value=%d, want Name=test Value=42", c.Name, c.Value)
-	}
-
-	// Test Wrap
-	initial := CustomConfig{Name: "initial", Value: 0}
-	c = Wrap(initial, withValue(99))
-
-	if c.Name != "initial" || c.Value != 99 {
-		t.Errorf("Custom Wrap() failed, got Name=%s Value=%d, want Name=initial Value=99", c.Name, c.Value)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := reverse(tt.in)
+			if !slicesEqual(got, tt.want) {
+				t.Errorf("reverse(%v) = %v, want %v", tt.in, got, tt.want)
+			}
+			// Ensure input is not modified
+			if len(tt.in) > 1 && slicesEqual(tt.in, got) {
+				t.Errorf("reverse modified input slice")
+			}
+		})
 	}
 }
 
@@ -1433,4 +1539,228 @@ func TestUniq(t *testing.T) {
 			t.Errorf("uniq() early termination = %v, want %v", collected, want)
 		}
 	})
+}
+
+func TestUniqNilAndEarlyTermination(t *testing.T) {
+	// nil input
+	got := slices.Collect(uniq(nilSeq()))
+	if len(got) != 0 {
+		t.Errorf("uniq(nil) = %v, want []", got)
+	}
+	// early termination
+	input := []string{"a", "b", "a", "c"}
+	collected := []string{}
+	uniq(slices.Values(input))(func(s string) bool {
+		collected = append(collected, s)
+		return len(collected) < 1 // stop after one unique
+	})
+	if len(collected) != 1 || collected[0] != "a" {
+		t.Errorf("uniq early termination = %v, want [a]", collected)
+	}
+}
+
+func TestMemoType(t *testing.T) {
+	t.Run("empty_memo", func(t *testing.T) {
+		m := memo[string]{}
+		if m.contains("test") {
+			t.Errorf("empty memo should not contain 'test'")
+		}
+	})
+
+	t.Run("add_and_contains", func(t *testing.T) {
+		m := memo[string]{}
+		m.add("test")
+		if !m.contains("test") {
+			t.Errorf("memo should contain 'test' after adding it")
+		}
+	})
+
+	t.Run("seen_first_call", func(t *testing.T) {
+		m := memo[string]{}
+		if m.seen("test") {
+			t.Errorf("first call to seen() should return false")
+		}
+		if !m.contains("test") {
+			t.Errorf("memo should contain 'test' after seen() call")
+		}
+	})
+
+	t.Run("seen_second_call", func(t *testing.T) {
+		m := memo[string]{}
+		m.seen("test")
+		if !m.seen("test") {
+			t.Errorf("second call to seen() should return true")
+		}
+	})
+
+	t.Run("memoizeItems_single_slice", func(t *testing.T) {
+		m := memoizeItems("a", "b", "c")
+		if !m.contains("a") || !m.contains("b") || !m.contains("c") {
+			t.Errorf("memoizeItems failed to properly initialize memo")
+		}
+	})
+
+	t.Run("memoizeItems_with_duplicates", func(t *testing.T) {
+		m := memoizeItems("a", "b", "b", "c")
+		expected := map[string]struct{}{
+			"a": {},
+			"b": {},
+			"c": {},
+		}
+		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
+			t.Errorf("memoizeItems didn't handle duplicates correctly")
+		}
+	})
+
+	t.Run("memoizeItems_with_empty", func(t *testing.T) {
+		m := memoizeItems("", "a", "", "b", "")
+		expected := map[string]struct{}{
+			"":  {},
+			"a": {},
+			"b": {},
+		}
+		if !reflect.DeepEqual(map[string]struct{}(m), expected) {
+			t.Errorf("memoizeItems() = %v, want %v", m, expected)
+		}
+	})
+}
+
+func TestComplexWorkflow(t *testing.T) {
+	// Create a config with all options set
+	c := Make(
+		WithSubjectItems("one:two:three"),
+		WithDelim(":"),
+		WithRemoveItems("two"),
+		WithPrefixItems("start"),
+		WithSuffixItems("end"),
+		WithReplaceItem("three", "THREE"),
+	)
+
+	// Test that all options were set correctly
+	if !slicesEqual(c.Subject(), []string{"one:two:three"}) {
+		t.Errorf("Subject was not set correctly: %v", c.Subject())
+	}
+
+	if c.Delim() != ":" {
+		t.Errorf("Delim was not set correctly: %v", c.Delim())
+	}
+
+	if !slicesEqual(c.Remove(), []string{"two"}) {
+		t.Errorf("Remove was not set correctly: %v", c.Remove())
+	}
+
+	if !slicesEqual(c.Prefix(), []string{"start"}) {
+		t.Errorf("Prefix was not set correctly: %v", c.Prefix())
+	}
+
+	if !slicesEqual(c.Suffix(), []string{"end"}) {
+		t.Errorf("Suffix was not set correctly: %v", c.Suffix())
+	}
+
+	if !mapsEqual(c.Replace(), map[string]string{"three": "THREE"}) {
+		t.Errorf("Replace was not set correctly: %v", c.Replace())
+	}
+
+	// Test the sequence
+	expectedSeq := []string{"start", "one", "THREE", "end"}
+	gotSeq := slices.Collect(c.All())
+	if !slicesEqual(gotSeq, expectedSeq) {
+		t.Errorf("Seq() = %v, want %v", gotSeq, expectedSeq)
+	}
+
+	// Test the string output
+	expectedStr := "start:one:THREE:end"
+	gotStr := c.String()
+	if gotStr != expectedStr {
+		t.Errorf("String() = %v, want %v", gotStr, expectedStr)
+	}
+
+	// Modify the config with additional options
+	c = Wrap(c,
+		WithSubjectItems("four:five"),
+		WithRemoveItems("five"),
+		WithPrefixItems("prestart"),
+		WithSuffixItems("endend"),
+	)
+
+	// Verify modified configuration
+	expectedSeq = []string{"prestart", "start", "one", "THREE", "four", "end", "endend"}
+	gotSeq = slices.Collect(c.All())
+	if !slicesEqual(gotSeq, expectedSeq) {
+		t.Errorf("Modified Seq() = %v, want %v", gotSeq, expectedSeq)
+	}
+
+	// Verify string output after modification
+	expectedStr = "prestart:start:one:THREE:four:end:endend"
+	gotStr = c.String()
+	if gotStr != expectedStr {
+		t.Errorf("Modified String() = %v, want %v", gotStr, expectedStr)
+	}
+}
+
+// --- Miscellaneous ---
+
+func TestVersion(t *testing.T) {
+	version := Version()
+	if version == "" {
+		t.Errorf("invalid Version() = %q", version)
+	}
+}
+
+// --- Helper functions ---
+
+func slicesEqual[T comparable](a, b []T) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func mapsEqual[K, V comparable](a, b map[K]V) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for k, va := range a {
+		if vb, ok := b[k]; !ok || va != vb {
+			return false
+		}
+	}
+	return true
+}
+
+func configEqual(a, b Config) bool {
+	if !slicesEqual(a.subject, b.subject) {
+		return false
+	}
+	if a.delim != b.delim {
+		return false
+	}
+	if !slicesEqual(a.remove, b.remove) {
+		return false
+	}
+	if !slicesEqual(a.prefix, b.prefix) {
+		return false
+	}
+	if !slicesEqual(a.suffix, b.suffix) {
+		return false
+	}
+	if (a.predicate == nil) != (b.predicate == nil) {
+		return false
+	}
+	return mapsEqual(a.replace, b.replace)
+}
+
+func nilSeq() iter.Seq[string] { return nil }
+
+func splitEach(delim string, strings ...string) iter.Seq[string] {
+	return split(delim, strings)
+}
+
+func memoizeItems[T comparable](items ...T) memo[T] {
+	return memoize(slices.Values(items))
 }
