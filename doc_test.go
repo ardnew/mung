@@ -237,12 +237,12 @@ func ExampleWithReplaceItems() {
 	// Output: /usr/local/bin:/opt/bin:/sbin
 }
 
-// ExampleWithPredicate demonstrates filtering elements using a predicate.
-func ExampleWithPredicate() {
+// ExampleWithFilter demonstrates filtering elements using a predicate.
+func ExampleWithFilter() {
 	config := Make(
 		WithSubject([]string{"/usr/local/bin:/usr/bin:/bin"}),
 		WithDelim(":"),
-		WithPredicate(func(s string) bool {
+		WithFilter(func(s string) bool {
 			return !strings.Contains(s, "local")
 		}),
 	)

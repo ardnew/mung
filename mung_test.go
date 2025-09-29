@@ -512,7 +512,7 @@ func TestConfigSeqFilterBranches(t *testing.T) {
 		t.Errorf("seq(false) = %v, want [a b]", got)
 	}
 	// filter=true, with predicate
-	c = Wrap(c, WithPredicate(func(s string) bool { return s == "b" }))
+	c = Wrap(c, WithFilter(func(s string) bool { return s == "b" }))
 	got = slices.Collect(c.seq(true))
 	if !slicesEqual(got, []string{"b"}) {
 		t.Errorf("seq(true) = %v, want [b]", got)
@@ -543,7 +543,7 @@ func TestConfigPredicateDefaultAndCustom(t *testing.T) {
 		t.Errorf("Default Predicate() should accept all")
 	}
 	// Custom predicate
-	c = Wrap(c, WithPredicate(func(s string) bool { return s == "bar" }))
+	c = Wrap(c, WithFilter(func(s string) bool { return s == "bar" }))
 	pred = c.Predicate()
 	if pred("foo") {
 		t.Errorf("Custom Predicate() should reject 'foo'")
@@ -1278,7 +1278,7 @@ func TestWithPredicate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config := Wrap(tt.initial, WithPredicate(tt.predicate), WithDelim(","))
+			config := Wrap(tt.initial, WithFilter(tt.predicate), WithDelim(","))
 			got := slices.Collect(config.Filtered())
 			if !slicesEqual(got, tt.want) {
 				t.Errorf("WithPredicate() = %v, want %v", got, tt.want)

@@ -363,9 +363,9 @@ func WithReplaceItems(replacements ...map[string]string) Option[Config] {
 	}
 }
 
-// WithPredicate returns an option that sets the predicate function used to
+// WithFilter returns an option that sets the predicate function used to
 // select yielded strings.
-func WithPredicate(predicate func(string) bool) Option[Config] {
+func WithFilter(predicate func(string) bool) Option[Config] {
 	return func(config Config) Config {
 		config.predicate = predicate
 
