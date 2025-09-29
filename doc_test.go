@@ -17,10 +17,10 @@ func ExampleVersion() {
 	version := Version()
 
 	fmt.Println(version)
-	// Output: 0.3.0
+	// Output: 0.4.0
 }
 
-//go:generate bash -c "sed -i'' ${DOLLAR}((${GOLINE}-3))$'s|.*|\t// Output: '\"${DOLLAR}(cat VERSION)\"'|' '${GOFILE}'"
+//go:generate bash -c "sed -i '' -e ${DOLLAR}((${GOLINE}-3))$'s|.*|\t// Output: '\"${DOLLAR}(cat VERSION)\"'|' '${GOFILE}'"
 
 // ExampleMake demonstrates creating a new Config with options.
 func ExampleMake() {
